@@ -3,6 +3,7 @@ from torchsummary import summary
 
 from roof_classifier.utils import get_device
 
+
 class RoofSegmenter(nn.Module):
     def __init__(self):
         super(RoofSegmenter, self).__init__()

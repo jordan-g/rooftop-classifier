@@ -1,11 +1,10 @@
-import logging
-from pathlib import Path
-from math import prod
-from unittest.mock import patch
-import numpy as np
-from typing import Optional
 import argparse
+import logging
+from math import prod
+from pathlib import Path
+from typing import Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms

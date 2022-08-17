@@ -1,12 +1,12 @@
-from math import prod
 import random
 from itertools import chain, cycle
+from math import prod
 from pathlib import Path
 
 import torch
 import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, IterableDataset
 from torchvision.transforms.functional import crop, hflip, rotate, vflip
-from torch.utils.data import IterableDataset, DataLoader
 
 from roof_classifier.utils import read_tiff
 
