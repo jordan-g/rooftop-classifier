@@ -24,6 +24,10 @@ class AIRSDataset(IterableDataset):
         names_file: Path,
         patch_size: int = 1000,
         patch_stride: int = 500,
+        crop_size: int = 512,
+        max_rotation_degrees: float = 45,
+        p_horizontal_flip: float = 0.2,
+        p_vertical_flip: float = 0.2,
         train: bool = False,
         min_roof_ratio: float = 0.05,
     ):
@@ -45,10 +49,10 @@ class AIRSDataset(IterableDataset):
         if self.train:
             self.transform = transforms.Compose(
             [
-                RandomRotation(45),
-                RandomCrop(512),
-                RandomHorizontalFlip(0.2),
-                RandomVerticalFlip(0.2),
+                RandomRotation(max_rotation_degrees),
+                RandomCrop(crop_size),
+                RandomHorizontalFlip(p_horizontal_flip),
+                RandomVerticalFlip(p_vertical_flip),
             ]
             )
         else:

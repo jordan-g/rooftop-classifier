@@ -185,8 +185,8 @@ def train(
         train_labels_dir,
         train_filenames_path,
         train=True,
-        patch_size=1024,
-        patch_stride=512,
+        patch_size=input_size*2,
+        patch_stride=input_size,
     )
     val_set = AIRSDataset(
         val_images_dir,
