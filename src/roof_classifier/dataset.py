@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import yaml
 from torch.utils.data import DataLoader, IterableDataset
 
-from roof_classifier.transforms import (RandomCrop, RandomHorizontalFlip,
+from roof_classifier.transforms import (CenterCrop, RandomHorizontalFlip,
                                         RandomRotation, RandomVerticalFlip)
 from roof_classifier.utils import read_tiff
 
@@ -31,6 +31,28 @@ class AIRSDataset(IterableDataset):
         train: bool = False,
         min_roof_ratio: float = 0.05,
     ):
+        """Initializer.
+
+        Args:
+            image_dir (Path): Path to images
+            label_dir (Path): Path to labels
+            names_file (Path): Path to text file containing dataset filenames
+            patch_size (int, optional): Size of patches to split images and labels
+                into prior to applying transformations (in pixels). Defaults to 1000.
+            patch_stride (int, optional): Stride of patches to split images and labels
+                into prior to applying transformations (in pixels). Defaults to 500.
+            crop_size (int, optional): Desired size of final crop (in pixels).
+                Used if train=True. Defaults to 512.
+            max_rotation_degrees (float, optional): Maximum degrees of random rotation.
+                Used if train=True. Defaults to 45.
+            p_horizontal_flip (float, optional): Probability of horizontal flip.
+                Used if train=True. Defaults to 0.2.
+            p_vertical_flip (float, optional): Probability of vertical flip.
+                Used if train=True. Defaults to 0.2.
+            train (bool, optional): Whether this is a training dataset. Defaults to False.
+            min_roof_ratio (float, optional): Minimum ratio of pixels containing roofs
+                in a patch for it to be considered valid. Used if train=True. Defaults to 0.05.
+        """
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.patch_size = patch_size
@@ -50,7 +72,7 @@ class AIRSDataset(IterableDataset):
             self.transform = transforms.Compose(
             [
                 RandomRotation(max_rotation_degrees),
-                RandomCrop(crop_size),
+                CenterCrop(crop_size),
                 RandomHorizontalFlip(p_horizontal_flip),
                 RandomVerticalFlip(p_vertical_flip),
             ]

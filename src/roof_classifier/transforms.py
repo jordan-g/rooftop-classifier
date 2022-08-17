@@ -1,7 +1,7 @@
 import random
 
 import torchvision.transforms as transforms
-from torchvision.transforms.functional import crop, hflip, rotate, vflip
+from torchvision.transforms.functional import center_crop, hflip, rotate, vflip
 
 
 class RandomHorizontalFlip:
@@ -32,7 +32,7 @@ class RandomVerticalFlip:
         return {"image": image, "label": label}
 
 
-class RandomCrop:
+class CenterCrop:
     def __init__(self, output_size):
         self.output_size = output_size
         if not isinstance(self.output_size, list):
@@ -41,11 +41,8 @@ class RandomCrop:
     def __call__(self, sample):
         image, label = sample["image"], sample["label"]
 
-        i, j, h, w = transforms.RandomCrop.get_params(
-            image, output_size=self.output_size
-        )
-        image = crop(image, i, j, h, w)
-        label = crop(label, i, j, h, w)
+        image = center_crop(image,self.output_size)
+        label = center_crop(label,self.output_size)
 
         return {"image": image, "label": label}
 
