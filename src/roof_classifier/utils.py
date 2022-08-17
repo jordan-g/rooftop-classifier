@@ -12,7 +12,7 @@ def read_tiff(file_path):
 
 
 def get_device():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
     if torch.cuda.is_available():
         logging.info("Using CUDA.")

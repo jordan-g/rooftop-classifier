@@ -3,9 +3,9 @@ from torchsummary import summary
 
 from roof_classifier.utils import get_device
 
-class Classifier(nn.Module):
+class RoofSegmenter(nn.Module):
     def __init__(self):
-        super(Classifier, self).__init__()
+        super(RoofSegmenter, self).__init__()
 
         self.layers = nn.Sequential(
             nn.Conv2d(3, 16, (3, 3), padding=1),
@@ -17,7 +17,8 @@ class Classifier(nn.Module):
             nn.ReLU(),
             nn.ConvTranspose2d(32, 32, (2, 2)),
             nn.Conv2d(32, 16, (3, 3), padding=1),
-            nn.ConvTranspose2d(16, 1, (3, 3), stride=2, padding=1, output_padding=1),
+            nn.Conv2d(16, 1, (3, 3), padding=1),
+            nn.Upsample(scale_factor=2, mode="bilinear"),
         )
 
     def forward(self, x):
@@ -27,7 +28,7 @@ class Classifier(nn.Module):
 if __name__ == "__main__":
     device = get_device()
     
-    model = Classifier()
-    model.to(device)
+    model = RoofSegmenter()
+    model.to("cpu")
 
     summary(model, (3, 512, 512))
