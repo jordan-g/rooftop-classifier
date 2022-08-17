@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from math import prod
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,13 @@ from torch.utils.data import DataLoader
 from roof_classifier.dataset import AIRSDataset, SingleImage
 from roof_classifier.model import RoofSegmenter
 from roof_classifier.utils import get_device, read_tiff
+
+# Configure logging
+log_format = "%(asctime)s %(name)s %(levelname)s: %(message)s"
+logging.basicConfig(stream = sys.stdout, 
+                    filemode = "w",
+                    format = log_format, 
+                    level = logging.ERROR)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
