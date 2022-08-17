@@ -15,45 +15,82 @@ from roof_classifier.dataset import AIRSDataset, SingleImage
 from roof_classifier.model import RoofSegmenter
 from roof_classifier.utils import get_device, read_tiff
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-def validate(model: nn.Module, val_loader, outputs_dir: Path, device: str = "cpu"):
+
+def validate(
+    model: nn.Module,
+    val_loader: DataLoader,
+    outputs_dir: Path,
+    n_batches: int = 1,
+    threshold: float = 0.5,
+    device: str = "cpu",
+):
+    """Run validation on a model.
+
+    Args:
+        model (nn.Module): Model to run validation on
+        val_loader (DataLoader): Validation data loader
+        outputs_dir (Path): Directory in which to save images with validation output
+        n_batches (int, optional): Number of batches to run validation on. Defaults to 1.
+        threshold (float, optional): Threshold value for classification. Defaults to 0.5.
+        device (str, optional): Device to use. Defaults to "cpu".
+    """
     model.eval()
 
     for batch_idx, sample in enumerate(val_loader):
-        if batch_idx > 0:
+        if batch_idx >= n_batches:
             break
 
         image = sample["image"].to(device)
         label = sample["label"].to(device)
 
-        batch_size = image.shape[0]
+        # Get model's classification output
         output = model(image).detach()
+        output = (torch.sigmoid(output) > threshold).float()
 
-        output = (torch.sigmoid(output) > 0.5).float()
-
+        batch_size = image.shape[0]
         for i in range(batch_size):
-            image_output = output[i].expand(3, -1, -1)
             image_input = image[i]
+            image_output = output[i].expand(3, -1, -1)
             image_label = label[i].expand(3, -1, -1)
+
+            # Save the image, model output, and label as a TIFF image
             combined = torch.cat([image_input, image_output, image_label], dim=2)
             combined = transforms.ToPILImage()(combined)
-            combined.save(outputs_dir / f"val_image_{i}.tiff")
+            combined.save(outputs_dir / f"val_image_{batch_idx}_{i}.tiff")
 
 
 def infer_image(
     model: nn.Module,
     image_path: Path,
     outputs_dir: Path,
-    device: str = "cpu",
     patch_size: int = 500,
     patch_stride: int = 250,
+    threshold: float = 0.5,
+    device: str = "cpu",
 ):
+    """Run inference on a single image.
+
+    Args:
+        model (nn.Module): Model to use
+        image_path (Path): Path to input image TIFF file
+        outputs_dir (Path): Directory in which to save images with inference output
+        patch_size (int, optional): Size of patches to feed to the model (in pixels).
+            Defaults to 500.
+        patch_stride (int, optional): Stride of patches to feed to the model (in pixels).
+            Defaults to 250.
+        threshold (float, optional): Threshold value for classification. Defaults to 0.5.
+        device (str, optional): Device to use. Defaults to "cpu".
+    """
     model.eval()
 
+    # Read in image and initialize output tensor
     orig_image = read_tiff(image_path) / 255.0
-    pred = 0.5 + torch.zeros([1, orig_image.shape[1], orig_image.shape[2]])
-    pred = pred
+    full_output = threshold + torch.zeros([1, orig_image.shape[1], orig_image.shape[2]])
 
+    # Create data loader
     dataset = SingleImage(
         image_path,
         patch_size=patch_size,
@@ -61,28 +98,34 @@ def infer_image(
     )
     loader = DataLoader(dataset, batch_size=1)
 
-    for batch_idx, sample in enumerate(loader):
+    for _, sample in enumerate(loader):
         i = sample["i"]
         j = sample["j"]
         image = sample["image"].to(device)
 
+        # Get model's output for this patch
         output = model(image)
         output = torch.sigmoid(output.detach().cpu().squeeze())
-        current_pred = pred[
+
+        # For each pixel in this patch, replace the existing output
+        # value with the new one if the confidence is higher (i.e.
+        # the deviation from the threshold is larger)
+        prev_output = full_output[
             0,
             i * patch_stride : i * patch_stride + patch_size,
             j * patch_stride : j * patch_stride + patch_size,
         ]
-        mask = torch.abs(output - 0.5) > torch.abs(current_pred - 0.5)
-        pred[
+        mask = torch.abs(output - threshold) > torch.abs(prev_output - threshold)
+        full_output[
             0,
             i * patch_stride : i * patch_stride + patch_size,
             j * patch_stride : j * patch_stride + patch_size,
         ][mask] = output[mask]
 
+    # Get classification output for the full image
+    full_output = (full_output > threshold).float().expand(3, -1, -1)
 
-    full_output = (pred > 0.5).float().expand(3, -1, -1)
-
+    # Save original image next to the model's output as a TIFF image
     combined = torch.cat([orig_image, full_output], dim=2)
     combined = transforms.ToPILImage()(combined)
     combined.save(outputs_dir / "test_image.tiff")
@@ -93,9 +136,26 @@ def train(
     dataset_info: dict,
     batch_size: int = 16,
     input_size: int = 512,
+    n_val_batches: int = 1,
+    threshold: float = 0.5,
     model_save_path: Optional[Path] = None,
     outputs_dir: Optional[Path] = None,
 ):
+    """Run training pipeline.
+
+    Args:
+        n_epochs (int): Number of epochs to train for
+        dataset_info (dict): Dictionary containing dataset paths
+        batch_size (int, optional): Batch size to use for training. Defaults to 16.
+        input_size (int, optional): Size of inputs to feed to the model during training
+            and validation (in pixels). Defaults to 512.
+        n_val_batches (int, optional): Number of batches to use for validation. Defaults to 1.
+        threshold (float, optional): Threshold value for classification. Defaults to 0.5.
+        model_save_path (Optional[Path], optional): Path to save model checkpoint.
+            Defaults to None.
+        outputs_dir (Optional[Path], optional): Directory in which to save validation and
+            inference outputs. Defaults to None.
+    """
     # Extract dataset information
     train_images_dir = Path(dataset_info["train_images_dir"])
     train_labels_dir = Path(dataset_info["train_labels_dir"])
@@ -110,6 +170,7 @@ def train(
     if outputs_dir is not None:
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
+    # Create datasets
     train_set = AIRSDataset(
         train_images_dir,
         train_labels_dir,
@@ -118,7 +179,6 @@ def train(
         patch_size=1024,
         patch_stride=512,
     )
-
     val_set = AIRSDataset(
         val_images_dir,
         val_labels_dir,
@@ -128,9 +188,11 @@ def train(
         patch_stride=input_size,
     )
 
+    # Create data loaders
     train_loader = DataLoader(train_set, batch_size=batch_size)
     val_loader = DataLoader(val_set, batch_size=batch_size)
 
+    # Initialize model
     model = RoofSegmenter().to(device)
 
     # Generate positive class weights for the loss function, based on the
@@ -144,11 +206,12 @@ def train(
     roof_ratio = np.mean(roof_ratios)
     pos_weight = (1 / roof_ratio) * torch.ones([input_size, input_size])
 
+    # Create loss and optimizer
     criterion = nn.BCEWithLogitsLoss(pos_weight).to(device)
     optimizer = torch.optim.Adam(model.parameters())
 
     for epoch in range(n_epochs):
-        logging.info(f"Epoch {epoch+1}/{n_epochs}.")
+        logger.info(f"Epoch {epoch+1}/{n_epochs}.")
 
         model.train()
         for batch_idx, sample in enumerate(train_loader):
@@ -157,24 +220,38 @@ def train(
 
             optimizer.zero_grad()
 
+            # Get model output
             output = model(image)
 
+            # Calculate loss & update weights
             loss = criterion(output, label)
             loss.backward()
             optimizer.step()
-            print(loss.item())
+
+            logger.info(f"Train loss: {loss.item()}")
 
             if outputs_dir is not None and batch_idx % 10 == 0:
+                # Run inference on test image
                 infer_image(
                     model,
                     Path(
                         "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/image.tif"
                     ),
                     outputs_dir=outputs_dir,
+                    threshold=threshold,
                     device=device,
                 )
-                validate(model, val_loader, outputs_dir=outputs_dir, device=device)
-        
+
+                # Run validation
+                validate(
+                    model,
+                    val_loader,
+                    outputs_dir=outputs_dir,
+                    n_batches=n_val_batches,
+                    threshold=threshold,
+                    device=device,
+                )
+
                 if model_save_path is not None:
                     # Save model checkpoint
                     model_save_path.parent.mkdir(parents=True, exist_ok=True)
