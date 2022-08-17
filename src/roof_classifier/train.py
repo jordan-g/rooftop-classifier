@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
+import yaml
 from torch.utils.data import DataLoader
 
 from roof_classifier.dataset import AIRSDataset, SingleImage
@@ -89,11 +90,20 @@ def infer_image(
 
 def train(
     n_epochs: int,
+    dataset_info: dict,
     batch_size: int = 16,
     input_size: int = 512,
     model_save_path: Optional[Path] = None,
     outputs_dir: Optional[Path] = None,
 ):
+    # Extract dataset information
+    train_images_dir = Path(dataset_info["train_images_dir"])
+    train_labels_dir = Path(dataset_info["train_labels_dir"])
+    train_filenames_path = Path(dataset_info["train_filenames_path"])
+    val_images_dir = Path(dataset_info["val_images_dir"])
+    val_labels_dir = Path(dataset_info["val_labels_dir"])
+    val_filenames_path = Path(dataset_info["val_filenames_path"])
+
     # Get device
     device = get_device()
 
@@ -101,30 +111,18 @@ def train(
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
     train_set = AIRSDataset(
-        Path(
-            "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/train/image"
-        ),
-        Path(
-            "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/train/label"
-        ),
-        Path(
-            "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/train.txt"
-        ),
+        train_images_dir,
+        train_labels_dir,
+        train_filenames_path,
         train=True,
         patch_size=1024,
         patch_stride=512,
     )
 
     val_set = AIRSDataset(
-        Path(
-            "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/val/image"
-        ),
-        Path(
-            "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/val/label"
-        ),
-        Path(
-            "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/val.txt"
-        ),
+        val_images_dir,
+        val_labels_dir,
+        val_filenames_path,
         train=False,
         patch_size=input_size,
         patch_stride=input_size,
@@ -135,15 +133,16 @@ def train(
 
     model = RoofSegmenter().to(device)
 
-    model.eval()
+    # Generate positive class weights for the loss function, based on the
+    # percentage of positive class pixels seen in training data
     roof_ratios = []
     for batch_idx, sample in enumerate(train_loader):
+        # Use a sample of 10 batches
         if batch_idx > 10:
             break
-
         roof_ratios.append(torch.sum(sample["label"]) / prod(sample["label"].shape))
     roof_ratio = np.mean(roof_ratios)
-    pos_weight = (1 / roof_ratio) * torch.ones([512, 512])
+    pos_weight = (1 / roof_ratio) * torch.ones([input_size, input_size])
 
     criterion = nn.BCEWithLogitsLoss(pos_weight).to(device)
     optimizer = torch.optim.Adam(model.parameters())
@@ -203,12 +202,25 @@ if __name__ == "__main__":
         "--batch_size", type=int, default=4, help="Batch size to train with."
     )
     parser.add_argument(
+        "--dataset_config",
+        type=Path,
+        default="./dataset.yaml",
+        help="Path to YAML file containing dataset information.",
+    )
+    parser.add_argument(
         "--input_size", type=int, default=512, help="Size of model inputs (in pixels)."
     )
     args = parser.parse_args()
 
+    # Load dataset YAML
+    if not Path.exists(args.dataset_config):
+        raise OSError(f"Dataset config YAML file {args.dataset_config} does not exist.")
+    with open(args.dataset_config, "r") as f:
+        dataset_info = yaml.safe_load(f)
+
     train(
-        n_epochs=args.n_epochs,
+        args.n_epochs,
+        dataset_info,
         batch_size=args.batch_size,
         input_size=args.input_size,
         model_save_path=args.model_save_path,

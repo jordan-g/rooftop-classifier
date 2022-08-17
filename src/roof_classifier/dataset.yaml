@@ -1,0 +1,6 @@
+train_images_dir: "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/train/image"
+train_labels_dir: "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/train/label"
+train_filenames_path: "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/train.txt"
+val_images_dir: "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/val/image"
+val_labels_dir: "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/val/label"
+val_filenames_path: "/Users/jordan/Documents/Work/Job Search/Invision AI/Recruiting exercise ML/AIRS/val.txt"
