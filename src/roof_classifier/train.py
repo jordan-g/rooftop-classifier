@@ -50,7 +50,7 @@ def infer_image(
 ):
     model.eval()
 
-    orig_image = read_tiff(image_path)
+    orig_image = read_tiff(image_path) / 255.0
     pred = 0.5 + torch.zeros([1, orig_image.shape[1], orig_image.shape[2]])
     pred = pred
 
@@ -81,9 +81,9 @@ def infer_image(
         ][mask] = output[mask]
 
 
-    full_output = pred.expand(3, -1, -1)
+    full_output = (pred > 0.5).float().expand(3, -1, -1)
 
-    combined = torch.cat([orig_image / 255.0, full_output], dim=2)
+    combined = torch.cat([orig_image, full_output], dim=2)
     combined = transforms.ToPILImage()(combined)
     combined.save(outputs_dir / "test_image.tiff")
 
