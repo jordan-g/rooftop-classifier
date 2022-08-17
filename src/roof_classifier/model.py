@@ -29,7 +29,6 @@ class RoofSegmenter(nn.Module):
 if __name__ == "__main__":
     device = get_device()
     
-    model = RoofSegmenter()
-    model.to("cpu")
+    model = RoofSegmenter().to("cpu")
 
     summary(model, (3, 512, 512))
