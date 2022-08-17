@@ -280,7 +280,7 @@ if __name__ == "__main__":
         help="Directory in which to save model outputs.",
     )
     parser.add_argument(
-        "--n_epochs", type=int, default=1000, help="Number of epochs to train for."
+        "--n_epochs", type=int, default=10, help="Number of epochs to train for."
     )
     parser.add_argument(
         "--batch_size", type=int, default=4, help="Batch size to train with."
