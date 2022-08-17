@@ -39,8 +39,8 @@ class AIRSDataset(IterableDataset):
             names_file (Path): Path to text file containing dataset filenames
             patch_size (int, optional): Size of patches to split images and labels
                 into prior to applying transformations (in pixels). Defaults to 1000.
-            patch_stride (int, optional): Stride of patches to split images and labels
-                into prior to applying transformations (in pixels). Defaults to 500.
+            patch_stride (int, optional): Stride to use for generating patches
+                prior to applying transformations (in pixels). Defaults to 500.
             crop_size (int, optional): Desired size of final crop (in pixels).
                 Used if train=True. Defaults to 512.
             max_rotation_degrees (float, optional): Maximum degrees of random rotation.
@@ -148,6 +148,15 @@ class SingleImage(IterableDataset):
         patch_size: int = 512,
         patch_stride: int = 256,
     ):
+        """Initializer.
+
+        Args:
+            image_path (Path): Path to TIFF image
+            patch_size (int, optional): Size of patches to split image into.
+                Defaults to 512.
+            patch_stride (int, optional): Stride to use for generating patches.
+                Defaults to 256.
+        """
         self.image_path = image_path
         self.patch_size = patch_size
         self.patch_stride = patch_stride
