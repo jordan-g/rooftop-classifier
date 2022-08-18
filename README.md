@@ -1,4 +1,7 @@
 # Rooftop Classifier
+
+![Example Image](example_image.png)
+
 This repo contains a simple implementation of a semantic segmentation model trained to classify rooftops from aerial imagery using PyTorch. Training uses the freely-available [AIRS dataset](https://www.airs-dataset.com).
 
 ## Requirements
