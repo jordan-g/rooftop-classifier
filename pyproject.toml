@@ -1,5 +1,14 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = [
+  "setuptools>=61.0",
+  "torch>=1.12",
+  "torchvision>=0.13",
+  "opencv-python>=4.6",
+  "torchsummary>=1.5",
+  "numpy>=1.23",
+  "Pillow>=9.2",
+  "PyYAML>=6.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +19,7 @@ authors = [
 ]
 description = "Roof classifier"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
