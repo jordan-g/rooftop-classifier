@@ -168,13 +168,13 @@ def train(
             inference outputs. Defaults to None.
     """
     # Extract dataset information
-    train_images_dir = Path(dataset_info["train_images_dir"])
-    train_labels_dir = Path(dataset_info["train_labels_dir"])
-    train_filenames_path = Path(dataset_info["train_filenames_path"])
-    val_images_dir = Path(dataset_info["val_images_dir"])
-    val_labels_dir = Path(dataset_info["val_labels_dir"])
-    val_filenames_path = Path(dataset_info["val_filenames_path"])
-    test_image_path = Path(dataset_info["test_image_path"])
+    train_images_dir = Path(dataset_info["train_images_dir"]).resolve()
+    train_labels_dir = Path(dataset_info["train_labels_dir"]).resolve()
+    train_filenames_path = Path(dataset_info["train_filenames_path"]).resolve()
+    val_images_dir = Path(dataset_info["val_images_dir"]).resolve()
+    val_labels_dir = Path(dataset_info["val_labels_dir"]).resolve()
+    val_filenames_path = Path(dataset_info["val_filenames_path"]).resolve()
+    test_image_path = Path(dataset_info["test_image_path"]).resolve()
 
     # Get device
     device = get_device()
