@@ -1,3 +1,4 @@
+import random
 from itertools import chain, cycle
 from math import prod
 from pathlib import Path
@@ -30,6 +31,7 @@ class AIRSDataset(IterableDataset):
         p_vertical_flip: float = 0.2,
         train: bool = False,
         min_roof_ratio: float = 0.05,
+        shuffle: bool = False,
     ):
         """Initializer.
 
@@ -52,6 +54,7 @@ class AIRSDataset(IterableDataset):
             train (bool, optional): Whether this is a training dataset. Defaults to False.
             min_roof_ratio (float, optional): Minimum ratio of pixels containing roofs
                 in a patch for it to be considered valid. Used if train=True. Defaults to 0.05.
+            shuffle (bool, optional): Whether to shuffle filenames. Defaults to False.
         """
         self.image_dir = image_dir
         self.label_dir = label_dir
@@ -59,6 +62,7 @@ class AIRSDataset(IterableDataset):
         self.patch_stride = patch_stride
         self.min_roof_ratio = min_roof_ratio
         self.train = train
+        self.shuffle = shuffle
 
         # Create list of filenames for images and labels
         with open(names_file, "r") as f:
@@ -135,6 +139,9 @@ class AIRSDataset(IterableDataset):
         Returns:
             dict: Sample containing image and label patch
         """
+        if self.shuffle:
+            random.shuffle(self.names)
+
         return chain.from_iterable(map(self.get_patches, cycle(self.names)))
 
 

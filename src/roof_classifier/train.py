@@ -5,11 +5,13 @@ from math import prod
 from pathlib import Path
 from typing import Optional
 
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 import yaml
+from PIL import Image
 from torch.utils.data import DataLoader
 
 from roof_classifier.dataset import AIRSDataset, SingleImage
@@ -18,10 +20,9 @@ from roof_classifier.utils import get_device, read_tiff
 
 # Configure logging
 log_format = "%(asctime)s %(name)s %(levelname)s: %(message)s"
-logging.basicConfig(stream = sys.stdout, 
-                    filemode = "w",
-                    format = log_format, 
-                    level = logging.ERROR)
+logging.basicConfig(
+    stream=sys.stdout, filemode="w", format=log_format, level=logging.ERROR
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -65,9 +66,9 @@ def validate(
             image_label = label[i].expand(3, -1, -1)
 
             # Save the image, model output, and label as a TIFF image
-            combined = torch.cat([image_input, image_output, image_label], dim=2)
-            combined = transforms.ToPILImage()(combined)
-            combined.save(outputs_dir / f"val_image_{batch_idx}_{i}.tiff")
+            combined_image = torch.cat([image_input, image_output, image_label], dim=2)
+            combined_image = transforms.ToPILImage()(combined_image)
+            combined_image.save(outputs_dir / f"val_image_{batch_idx}_{i}.tiff")
 
 
 def infer_image(
@@ -78,7 +79,7 @@ def infer_image(
     patch_stride: int = 250,
     threshold: float = 0.5,
     device: str = "cpu",
-):
+) -> Image:
     """Run inference on a single image.
 
     Args:
@@ -134,9 +135,11 @@ def infer_image(
     full_output = (full_output > threshold).float().expand(3, -1, -1)
 
     # Save original image next to the model's output as a TIFF image
-    combined = torch.cat([orig_image, full_output], dim=2)
-    combined = transforms.ToPILImage()(combined)
-    combined.save(outputs_dir / "test_image.tiff")
+    combined_image = torch.cat([orig_image, full_output], dim=2)
+    combined_image = transforms.ToPILImage()(combined_image)
+    combined_image.save(outputs_dir / "test_image.tiff")
+
+    return combined_image
 
 
 def train(
@@ -176,6 +179,8 @@ def train(
     # Get device
     device = get_device()
 
+    writer = None
+
     if outputs_dir is not None:
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -185,8 +190,9 @@ def train(
         train_labels_dir,
         train_filenames_path,
         train=True,
-        patch_size=input_size*2,
+        patch_size=input_size * 2,
         patch_stride=input_size,
+        shuffle=True,
     )
     val_set = AIRSDataset(
         val_images_dir,
@@ -195,6 +201,7 @@ def train(
         train=False,
         patch_size=input_size,
         patch_stride=input_size,
+        shuffle=True,
     )
 
     # Create data loaders
@@ -240,14 +247,38 @@ def train(
             logger.info(f"Train loss: {loss.item()}")
 
             if outputs_dir is not None and batch_idx % 10 == 0:
+                logger.info("Running inference on test image...")
+
                 # Run inference on test image
-                infer_image(
+                combined_image = infer_image(
                     model,
                     test_image_path,
                     outputs_dir=outputs_dir,
                     threshold=threshold,
                     device=device,
                 )
+
+                # Resize inference image to smaller dimensions and 
+                # convert to a numpy array
+                new_width = 1000
+                width_ratio = float(new_width) / combined_image.size[0]
+                new_height = int(combined_image.size[1] * width_ratio)
+                combined_image = combined_image.resize(
+                    (new_width, new_height), Image.Resampling.LANCZOS
+                )
+                combined_image = np.array(combined_image)
+
+                # Write inference image to a frame of video
+                if writer is None:
+                    writer = cv2.VideoWriter(
+                        str(outputs_dir / "test_output.mp4"),
+                        cv2.VideoWriter_fourcc(*"mp4v"),
+                        30,
+                        (combined_image.shape[1], combined_image.shape[0]),
+                    )
+                writer.write(combined_image)
+
+                logger.info("Running validation...")
 
                 # Run validation
                 validate(
@@ -263,6 +294,9 @@ def train(
                     # Save model checkpoint
                     model_save_path.parent.mkdir(parents=True, exist_ok=True)
                     torch.save(model.state_dict(), model_save_path)
+
+    if writer is not None:
+        writer.release()
 
 
 if __name__ == "__main__":
